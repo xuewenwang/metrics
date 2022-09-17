@@ -2,3 +2,4 @@
 # SPDX-FileCopyrightText: 2022 Collabora, Ltd.
 
 __pycache__/
+src/proto
