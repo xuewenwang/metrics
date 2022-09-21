@@ -2,13 +2,14 @@
 # Copyright 2022, Collabora, Ltd.
 # SPDX-License-Identifier: BSL-1.0
 
+import argparse
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
 
 from dataclasses import dataclass
-import proto.monado_metrics_pb2
+from proto.monado_metrics_pb2 import Record
 from google.protobuf.internal.decoder import _DecodeVarint as decodeVariant
 from google.protobuf.internal.encoder import _EncodeVarint as encodeVariant
 
@@ -17,10 +18,6 @@ import bokeh.layouts
 import bokeh.models
 import bokeh.palettes
 import bokeh.plotting
-
-Record = proto.monado_metrics_pb2.Record
-
-file = 'out/bloop.bin'
 
 
 @dataclass
@@ -33,6 +30,8 @@ class Metrics:
     absolute: dict[str, list[float]]
     relative_gpu: dict[str, list[float]]
     relative_display: dict[str, list[float]]
+    session_frames: list
+    compositor_frames: list
 
     def __init__(self):
         self.frames = list()
@@ -129,13 +128,16 @@ def makeCharts(m, width=1000, height=400):
     charts.append([makeRelativeChart(m, "Relative predicted gpu done time", m.relative_gpu, width, height)])
     charts.append([makeRelativeChart(m, "Relative predicted display time", m.relative_display, width, height)])
 
+
+    # Make axis locked
     charts[1][0].x_range = charts[0][0].x_range
     charts[2][0].x_range = charts[0][0].x_range
 
-    bokeh.io.show(bokeh.plotting.gridplot(charts))
+    # Plot and reuse
+    return bokeh.plotting.gridplot(charts)
 
 
-def readBin():
+def readBin(file):
     data=None
     try:
         f = open(file, 'rb')
@@ -163,10 +165,38 @@ def readBin():
 
         pos += next_pos
 
-    makeCharts(m)
+    return m
 
-readBin()
 
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'file',
+        metavar = 'METRICS_FILE',
+        help='File holding metrics data')
+    parser.add_argument(
+        '--open-plot',
+        default=False,
+        action="store_true",
+        help="If selected, plots will be opened.")
+    parser.add_argument(
+        '--plot-output-file',
+        default=None,
+        help="Plots will be outputted to this file.")
+    args = parser.parse_args()
+
+    m = readBin(args.file)
+
+    c = makeCharts(m)
+
+    if (args.plot_output_file):
+        bokeh.io.output_file(args.plot_output_file)
+
+    if args.open_plot:
+        bokeh.io.show(c)
+    elif args.plot_output_file:
+        bokeh.io.save(c)
 
 
 #####
@@ -178,7 +208,7 @@ def writeMsg(f, msg):
     encodeVariant(f.write, len(str), True)
     f.write(str)
 
-def writeBin():
+def writeBin(file):
     try:
         f = open(file, 'wb')
         r = Record()
@@ -193,3 +223,11 @@ def writeBin():
         f.close()
     except IOError:
         print("Error")
+
+
+#####
+# Runnable s script
+#
+
+if __name__ == '__main__':
+    main()

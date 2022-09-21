@@ -45,7 +45,7 @@ message SessionFrame
 	bool discarded = 12;
 }
 
-message CompositorFrame
+message SystemFrame
 {
 	//! ID of frame.
 	int64 frame_id = 1;
@@ -72,15 +72,18 @@ message Used
 	//! Which session frame was used by the compositor.
 	int64 session_frame_id = 2;
 
-	//! The frame that the session was used by.
-	int64 compositor_frame_id = 3;
+	//! The system frame that the session was used by.
+	int64 system_frame_id = 3;
+
+	//! When the frame was latched.
+	uint64 when_ns = 4;
 }
 
 message Record
 {
 	oneof record {
 		SessionFrame session_frame = 1;
-		CompositorFrame compositor_frame = 2;
+		SystemFrame system_frame = 2;
 		Used used = 3;
 	};
 }
