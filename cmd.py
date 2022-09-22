@@ -13,6 +13,8 @@ from proto.monado_metrics_pb2 import Record
 from google.protobuf.internal.decoder import _DecodeVarint as decodeVariant
 from google.protobuf.internal.encoder import _EncodeVarint as encodeVariant
 
+import pandas as pd
+
 import bokeh.io
 import bokeh.layouts
 import bokeh.models
@@ -60,6 +62,27 @@ def diff_in_ns_to_ms(a, b):
 
     return diff_ms
 
+
+####
+# Used
+#
+
+def handleUsed(m, f):
+    return
+
+
+####
+# System frame
+#
+
+def handleSystemFrame(m, f):
+    return
+
+
+####
+# Session frame
+#
+
 def makeRelative(d, to, f):
     predicted_ms = diff_in_ns_to_ms(f.when_predicted_ns, to)
     start_cpu_ms = diff_in_ns_to_ms(f.when_wait_woke_ns, to)
@@ -92,6 +115,71 @@ def handleSessionFrame(m, f):
     return
 
 
+####
+# Chart functions
+#
+
+def makeBoxChart(d):
+    cats = list(d.keys())
+    df = pd.DataFrame(d)
+    q1 = df.quantile(q = 0.25)
+    q2 = df.quantile(q = 0.5)
+    q3 = df.quantile(q = 0.75)
+    iqr = q3 - q1
+    upper = q3 + 1.5 * iqr
+    lower = q1 - 1.5 * iqr
+
+    outx = list()
+    outy = list()
+    def outlier(group):
+        cat = group.name
+        listOfOutliersPerColumn = group[(group > upper.loc[cat]) | (group < lower.loc[cat])]
+        for v in listOfOutliersPerColumn:
+            outx.append(cat)
+            outy.append(v)
+    df.apply(outlier)
+
+    f = bokeh.plotting.figure(background_fill_color = "#efefef", x_range = cats)
+
+    # limit upper and lower to values
+    for key in cats:
+        minV = df[key].min()
+        maxV = df[key].max()
+        if lower[key] < minV:
+            lower[key] = minV
+        if upper[key] > maxV:
+            upper[key] = maxV
+
+    # stems
+    f.segment(cats, upper, cats, q3, line_color = "black")
+    f.segment(cats, lower, cats, q1, line_color = "black")
+
+    # boxes
+    f.vbar(cats, 0.7, q2, q3, fill_color = "#E08E79", line_color = "black")
+    f.vbar(cats, 0.7, q1, q2, fill_color = "#3B8686", line_color = "black")
+
+    # whiskers (almost-0 height rects simpler than segments)
+    f.rect(cats, lower, 0.2, 0.01, line_color = "black")
+    f.rect(cats, upper, 0.2, 0.01, line_color = "black")
+
+    f.circle(outx, outy, size=6, color="#F38630", fill_alpha=0.6)
+
+    f.xgrid.grid_line_color = None
+    f.grid.grid_line_width = 2
+    f.xaxis.major_label_text_font_size = "16px"
+
+    return f
+
+
+def makeAbsolteBoxChart(m, charts):
+    d = dict()
+    for key in m.absolute.keys():
+        nkey = 'session_' + key
+        d[nkey] = m.absolute[key]
+
+    charts.append([makeBoxChart(d)])
+
+
 def makeAbsoluteChart(m, width, height):
     colors = bokeh.palettes.Category10[10]
     
@@ -106,6 +194,7 @@ def makeAbsoluteChart(m, width, height):
     f.legend.click_policy = 'hide'
 
     return f
+
 
 def makeRelativeChart(m, title, d, width, height):
     colors = bokeh.palettes.Category10[10]
@@ -122,20 +211,31 @@ def makeRelativeChart(m, title, d, width, height):
 
     return f
 
-def makeCharts(m, width=1000, height=400):
-    charts = []
+
+def makeSessionCharts(m, charts, width=1000, height=400):
+    first = len(charts)
     charts.append([makeAbsoluteChart(m, width, height)]) # Array of Array for vertical spacing.
     charts.append([makeRelativeChart(m, "Relative predicted gpu done time", m.relative_gpu, width, height)])
     charts.append([makeRelativeChart(m, "Relative predicted display time", m.relative_display, width, height)])
 
-
     # Make axis locked
-    charts[1][0].x_range = charts[0][0].x_range
-    charts[2][0].x_range = charts[0][0].x_range
+    charts[first + 1][0].x_range = charts[first][0].x_range
+    charts[first + 1][0].x_range = charts[first][0].x_range
+
+
+def makeCharts(m):
+    charts = []
+
+    makeAbsolteBoxChart(m, charts)
+    makeSessionCharts(m, charts)
 
     # Plot and reuse
     return bokeh.plotting.gridplot(charts)
 
+
+####
+# File reading
+#
 
 def readBin(file):
     data=None
@@ -156,10 +256,12 @@ def readBin(file):
 
         which = r.WhichOneof('record')
         match which:
+            case 'used':
+                handleUsed(m, r.used)
+            case 'system_frame':
+                handleSystemFrame(m, r.system_frame)
             case 'session_frame':
                 handleSessionFrame(m, r.session_frame)
-            case 'compositor_frame':
-                handleCompositorFrame(m, r.compositor_frame)
             case _:
                 print(which)
 
@@ -169,12 +271,11 @@ def readBin(file):
 
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'file',
         metavar = 'METRICS_FILE',
-        help='File holding metrics data')
+        help='File holding metrics data.')
     parser.add_argument(
         '--open-plot',
         default=False,
