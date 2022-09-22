@@ -23,6 +23,19 @@ import bokeh.plotting
 
 
 @dataclass
+class SystemMetrics:
+    """
+    A collection of metrics for the system.
+    """
+
+    absolute: dict[str, list[float]]
+
+    def __init__(self):
+        self.absolute = dict()
+        self.absolute['gpu_ms'] = list()
+
+
+@dataclass
 class Metrics:
     """
     A collection of metrics.
@@ -36,6 +49,7 @@ class Metrics:
     compositor_frames: list
 
     def __init__(self):
+        self.system = SystemMetrics()
         self.frames = list()
         self.frame_ids = list()
         self.absolute = dict()
@@ -69,6 +83,16 @@ def diff_in_ns_to_ms(a, b):
 
 def handleUsed(m, f):
     return
+
+
+####
+# System GPU Info
+#
+
+def handleSystemGpuInfo(m, f):
+    gpu_ms = diff_in_ns_to_ms(f.end_gpu_ns, f.start_gpu_ns)
+
+    m.system.absolute['gpu_ms'].append(gpu_ms)
 
 
 ####
@@ -176,7 +200,12 @@ def makeAbsolteBoxChart(m, charts):
     for key in m.absolute.keys():
         nkey = 'session_' + key
         d[nkey] = m.absolute[key]
+    charts.append([makeBoxChart(d)])
 
+    d = dict()
+    for key in m.system.absolute.keys():
+        nkey = 'system_' + key
+        d[nkey] = m.system.absolute[key]
     charts.append([makeBoxChart(d)])
 
 
@@ -256,12 +285,14 @@ def readBin(file):
 
         which = r.WhichOneof('record')
         match which:
+            case 'session_frame':
+                handleSessionFrame(m, r.session_frame)
             case 'used':
                 handleUsed(m, r.used)
             case 'system_frame':
                 handleSystemFrame(m, r.system_frame)
-            case 'session_frame':
-                handleSessionFrame(m, r.session_frame)
+            case 'system_gpu_info':
+                handleSystemGpuInfo(m, r.system_gpu_info)
             case _:
                 print(which)
 
