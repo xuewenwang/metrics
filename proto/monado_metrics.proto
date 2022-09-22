@@ -45,6 +45,21 @@ message SessionFrame
 	bool discarded = 12;
 }
 
+message Used
+{
+	//! Owning session of the frame.
+	int64 session_id = 1;
+
+	//! Which session frame was used by the compositor.
+	int64 session_frame_id = 2;
+
+	//! The system frame that the session was used by.
+	int64 system_frame_id = 3;
+
+	//! When the frame was latched.
+	uint64 when_ns = 4;
+}
+
 message SystemFrame
 {
 	//! ID of frame.
@@ -78,20 +93,8 @@ message SystemGpuInfo
 
 	//! End of GPU work.
 	uint64 end_gpu_ns = 3;
-}
 
-message Used
-{
-	//! Owning session of the frame.
-	int64 session_id = 1;
-
-	//! Which session frame was used by the compositor.
-	int64 session_frame_id = 2;
-
-	//! The system frame that the session was used by.
-	int64 system_frame_id = 3;
-
-	//! When the frame was latched.
+	//! When the information was gathered.
 	uint64 when_ns = 4;
 }
 
@@ -99,7 +102,8 @@ message Record
 {
 	oneof record {
 		SessionFrame session_frame = 1;
-		SystemFrame system_frame = 2;
-		Used used = 3;
+		Used used = 2;
+		SystemFrame system_frame = 3;
+		SystemGpuInfo system_gpu_info = 4;
 	};
 }
