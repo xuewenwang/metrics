@@ -249,7 +249,7 @@ def makeSessionCharts(m, charts, width=1000, height=400):
 
     # Make axis locked
     charts[first + 1][0].x_range = charts[first][0].x_range
-    charts[first + 1][0].x_range = charts[first][0].x_range
+    charts[first + 2][0].x_range = charts[first][0].x_range
 
 
 def makeCharts(m):
