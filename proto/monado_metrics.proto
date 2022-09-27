@@ -89,10 +89,10 @@ message SystemGpuInfo
 	int64 frame_id = 1;
 
 	//! Start of GPU work.
-	uint64 start_gpu_ns = 2;
+	uint64 gpu_start_ns = 2;
 
 	//! End of GPU work.
-	uint64 end_gpu_ns = 3;
+	uint64 gpu_end_ns = 3;
 
 	//! When the information was gathered.
 	uint64 when_ns = 4;

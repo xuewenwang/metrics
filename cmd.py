@@ -90,7 +90,7 @@ def handleUsed(m, f):
 #
 
 def handleSystemGpuInfo(m, f):
-    gpu_ms = diff_in_ns_to_ms(f.end_gpu_ns, f.start_gpu_ns)
+    gpu_ms = diff_in_ns_to_ms(f.gpu_end_ns, f.gpu_start_ns)
 
     m.system.absolute['gpu_ms'].append(gpu_ms)
 
