@@ -28,11 +28,27 @@ class SystemMetrics:
     A collection of metrics for the system.
     """
 
+    frame_ids: list
     absolute: dict[str, list[float]]
+    predicted_present: dict[str, dict[float]]
+    absolute_gpu_only: dict[str, list[float]]
 
     def __init__(self):
+        self.frame_ids = list()
         self.absolute = dict()
+        self.absolute['cpu_ms'] = list()
+        self.absolute['draw_ms'] = list()
         self.absolute['gpu_ms'] = list()
+        #self.absolute['submit_ms'] = list()
+        self.predicted_present = dict()
+        self.predicted_present['predicted_ms'] = list()
+        self.predicted_present['start_cpu_ms'] = list()
+        self.predicted_present['done_cpu_ms'] = list()
+        self.predicted_present['submitted_ms'] = list()
+        self.predicted_present['gpu_ms'] = list()
+        self.predicted_present['present_ms'] = list()
+        self.absolute_gpu_only = dict()
+        self.absolute_gpu_only['gpu_ms'] = list()
 
 
 @dataclass
@@ -92,7 +108,44 @@ def handleUsed(m, f):
 def handleSystemGpuInfo(m, f):
     gpu_ms = diff_in_ns_to_ms(f.gpu_end_ns, f.gpu_start_ns)
 
+    #m.system.absolute['gpu_ms'].append(gpu_ms)
+    m.system.absolute_gpu_only['gpu_ms'].append(gpu_ms)
+
+
+####
+# System Present Info
+#
+
+def handleSystemPresentInfo(m, f):
+    # Synthesized value
+    when_gpu_done_ns = f.actual_present_time_ns - f.present_margin_ns
+
+    # Frame ids
+    m.system.frame_ids.append(f.frame_id)
+
+    # Absoulte chart
+    cpu_ms = diff_in_ns_to_ms(f.when_began_ns, f.when_woke_ns)
+    draw_ms = diff_in_ns_to_ms(f.when_submitted_ns, f.when_began_ns)
+    gpu_ms = diff_in_ns_to_ms(when_gpu_done_ns, f.when_submitted_ns)
+
+    m.system.absolute['cpu_ms'].append(cpu_ms)
+    m.system.absolute['draw_ms'].append(draw_ms)
     m.system.absolute['gpu_ms'].append(gpu_ms)
+
+    # Relative chart
+    predicted_ms = diff_in_ns_to_ms(f.when_predict_ns, f.desired_present_time_ns)
+    start_cpu_ms = diff_in_ns_to_ms(f.when_woke_ns, f.desired_present_time_ns)
+    done_cpu_ms = diff_in_ns_to_ms(f.when_began_ns, f.desired_present_time_ns)
+    submitted_ms = diff_in_ns_to_ms(f.when_submitted_ns, f.desired_present_time_ns)
+    gpu_ms = diff_in_ns_to_ms(when_gpu_done_ns, f.desired_present_time_ns)
+    present_ms = diff_in_ns_to_ms(f.actual_present_time_ns, f.desired_present_time_ns)
+
+    m.system.predicted_present['predicted_ms'].append(predicted_ms)
+    m.system.predicted_present['start_cpu_ms'].append(start_cpu_ms)
+    m.system.predicted_present['done_cpu_ms'].append(done_cpu_ms)
+    m.system.predicted_present['submitted_ms'].append(submitted_ms)
+    m.system.predicted_present['gpu_ms'].append(gpu_ms)
+    m.system.predicted_present['present_ms'].append(present_ms)
 
 
 ####
@@ -209,15 +262,15 @@ def makeAbsolteBoxChart(m, charts):
     charts.append([makeBoxChart(d)])
 
 
-def makeAbsoluteChart(m, width, height):
+def makeAbsoluteChart(frame_ids, d, width, height):
     colors = bokeh.palettes.Category10[10]
     
     f = bokeh.plotting.figure(title="Absolute", width=width, height=height)
     f.xaxis.axis_label = 'frame_ids'
 
-    for i, key in enumerate(m.absolute):
-        value = m.absolute[key]
-        f.circle(m.frame_ids, value, legend_label=key, color=colors[i])
+    for i, key in enumerate(d):
+        value = d[key]
+        f.circle(frame_ids, value, legend_label=key, color=colors[i])
 
     # After to avoid warnings
     f.legend.click_policy = 'hide'
@@ -225,7 +278,7 @@ def makeAbsoluteChart(m, width, height):
     return f
 
 
-def makeRelativeChart(m, title, d, width, height):
+def makeRelativeChart(frame_ids, d, title, width, height):
     colors = bokeh.palettes.Category10[10]
 
     f = bokeh.plotting.figure(title=title, width=width, height=height)
@@ -233,7 +286,7 @@ def makeRelativeChart(m, title, d, width, height):
 
     for i, key in enumerate(d):
         value = d[key]
-        f.line(m.frame_ids, value, legend_label=key, color=colors[i])
+        f.line(frame_ids, value, legend_label=key, color=colors[i])
 
     # After to avoid warnings
     f.legend.click_policy = 'hide'
@@ -243,13 +296,25 @@ def makeRelativeChart(m, title, d, width, height):
 
 def makeSessionCharts(m, charts, width=1000, height=400):
     first = len(charts)
-    charts.append([makeAbsoluteChart(m, width, height)]) # Array of Array for vertical spacing.
-    charts.append([makeRelativeChart(m, "Relative predicted gpu done time", m.relative_gpu, width, height)])
-    charts.append([makeRelativeChart(m, "Relative predicted display time", m.relative_display, width, height)])
+    charts.append([makeAbsoluteChart(m.frame_ids, m.absolute, width, height)]) # Array of Array for vertical spacing.
+    charts.append([makeRelativeChart(m.frame_ids, m.relative_gpu, "Relative predicted gpu done time", width, height)])
+    charts.append([makeRelativeChart(m.frame_ids, m.relative_display, "Relative predicted display time", width, height)])
 
     # Make axis locked
     charts[first + 1][0].x_range = charts[first][0].x_range
     charts[first + 2][0].x_range = charts[first][0].x_range
+
+
+def makeSystemCharts(m, charts, width=1000, height=400):
+    title = "Relative predicted present time"
+    frame_ids = m.system.frame_ids
+
+    first = len(charts)
+    charts.append([makeAbsoluteChart(frame_ids, m.system.absolute, width, height)]) # Array of Array for vertical spacing.
+    charts.append([makeRelativeChart(frame_ids, m.system.predicted_present, title, width, height)])
+
+    # Make axis locked
+    charts[first + 1][0].x_range = charts[first][0].x_range
 
 
 def makeCharts(m):
@@ -257,6 +322,7 @@ def makeCharts(m):
 
     makeAbsolteBoxChart(m, charts)
     makeSessionCharts(m, charts)
+    makeSystemCharts(m, charts)
 
     # Plot and reuse
     return bokeh.plotting.gridplot(charts)
@@ -293,6 +359,8 @@ def readBin(file):
                 handleSystemFrame(m, r.system_frame)
             case 'system_gpu_info':
                 handleSystemGpuInfo(m, r.system_gpu_info)
+            case 'system_present_info':
+                handleSystemPresentInfo(m, r.system_present_info)
             case _:
                 print(which)
 
