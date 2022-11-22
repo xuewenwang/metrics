@@ -3,6 +3,12 @@ syntax = "proto3";
 package monado_metrics;
 
 
+message Version
+{
+	uint32 major = 1;
+	uint32 minor = 2;
+}
+
 message SessionFrame
 {
 	//! Which session this frame belongs to.
@@ -158,10 +164,11 @@ message SystemPresentInfo
 message Record
 {
 	oneof record {
-		SessionFrame session_frame = 1;
-		Used used = 2;
-		SystemFrame system_frame = 3;
-		SystemGpuInfo system_gpu_info = 4;
-		SystemPresentInfo system_present_info = 5;
+		Version version = 1;
+		SessionFrame session_frame = 2;
+		Used used = 3;
+		SystemFrame system_frame = 4;
+		SystemGpuInfo system_gpu_info = 5;
+		SystemPresentInfo system_present_info = 6;
 	};
 }

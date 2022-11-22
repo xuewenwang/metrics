@@ -22,6 +22,14 @@ import bokeh.palettes
 import bokeh.plotting
 
 
+class VersionError(Exception):
+    """Version mismatch"""
+
+    def __init__(self, major, minor):
+        self.major = major
+        self.minor = minor
+        super().__init__("Does not support version {}.{} files!".format(major, minor))
+
 @dataclass
 class SystemMetrics:
     """
@@ -92,6 +100,13 @@ def diff_in_ns_to_ms(a, b):
 
     return diff_ms
 
+####
+# Version
+#
+
+def handleVersion(m, v):
+    if (v.major != 1):
+        raise VersionError(v.major, v.minor)
 
 ####
 # Used
@@ -332,6 +347,13 @@ def makeCharts(m):
 # File reading
 #
 
+def readRecord(data, pos, next_pos, r):
+    if pos < len(data):
+        next_pos, pos = decodeVariant(data, pos)
+        r.ParseFromString(data[pos:pos + next_pos])
+        pos += next_pos
+    return pos, next_pos
+
 def readBin(file):
     data=None
     try:
@@ -344,13 +366,26 @@ def readBin(file):
     r = Record()
     m = Metrics()
 
+    # Needed during reading.
     next_pos, pos = 0, 0
+
+    # Grab the first version record.
+    if pos < len(data):
+        pos, next_pos = readRecord(data, pos, next_pos, r)
+
+        if r.WhichOneof('record') != 'version':
+            raise Exception("First record not version tag")
+
+        handleVersion(m, r.version)
+
+    # Looping for all other records.
     while pos < len(data):
-        next_pos, pos = decodeVariant(data, pos)
-        r.ParseFromString(data[pos:pos + next_pos])
+        pos, next_pos = readRecord(data, pos, next_pos, r)
 
         which = r.WhichOneof('record')
         match which:
+            case 'version':
+                raise Exception("Multiple version tags")
             case 'session_frame':
                 handleSessionFrame(m, r.session_frame)
             case 'used':
@@ -363,8 +398,6 @@ def readBin(file):
                 handleSystemPresentInfo(m, r.system_present_info)
             case _:
                 print(which)
-
-        pos += next_pos
 
     return m
 
