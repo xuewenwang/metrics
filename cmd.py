@@ -37,9 +37,9 @@ class SystemMetrics:
     """
 
     frame_ids: list
-    absolute: dict[str, list[float]]
-    predicted_present: dict[str, dict[float]]
-    absolute_gpu_only: dict[str, list[float]]
+    absolute: "dict[str, list[float]]"
+    predicted_present: "dict[str, dict[float]]"
+    absolute_gpu_only: "dict[str, list[float]]"
 
     def __init__(self):
         self.frame_ids = list()
@@ -66,9 +66,9 @@ class Metrics:
     """
 
     frame_ids: list
-    absolute: dict[str, list[float]]
-    relative_gpu: dict[str, list[float]]
-    relative_display: dict[str, list[float]]
+    absolute: "dict[str, list[float]]"
+    relative_gpu: "dict[str, list[float]]"
+    relative_display: "dict[str, list[float]]"
     session_frames: list
     compositor_frames: list
 
