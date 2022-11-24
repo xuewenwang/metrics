@@ -383,21 +383,20 @@ def readBin(file):
         pos, next_pos = readRecord(data, pos, next_pos, r)
 
         which = r.WhichOneof('record')
-        match which:
-            case 'version':
-                raise Exception("Multiple version tags")
-            case 'session_frame':
-                handleSessionFrame(m, r.session_frame)
-            case 'used':
-                handleUsed(m, r.used)
-            case 'system_frame':
-                handleSystemFrame(m, r.system_frame)
-            case 'system_gpu_info':
-                handleSystemGpuInfo(m, r.system_gpu_info)
-            case 'system_present_info':
-                handleSystemPresentInfo(m, r.system_present_info)
-            case _:
-                print(which)
+        if which == 'version':
+            raise Exception("Multiple version tags")
+        elif which == 'session_frame':
+            handleSessionFrame(m, r.session_frame)
+        elif which == 'used':
+            handleUsed(m, r.used)
+        elif which == 'system_frame':
+            handleSystemFrame(m, r.system_frame)
+        elif which == 'system_gpu_info':
+            handleSystemGpuInfo(m, r.system_gpu_info)
+        elif which == 'system_present_info':
+            handleSystemPresentInfo(m, r.system_present_info)
+        else:
+            print(which)
 
     return m
 
