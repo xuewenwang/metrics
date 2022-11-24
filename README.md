@@ -5,7 +5,7 @@ Copyright 2022, Collabora, Ltd. and the Monado contributors
 SPDX-License-Identifier: BSL-1.0
 -->
 
-To run tools make sure to install python protobuf and bokeh.
+To run tools make sure to install python protobuf, pandas and bokeh (see requirements.txt).
 
 First build the protobuf python file with make.
 
